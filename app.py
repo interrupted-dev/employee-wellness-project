@@ -185,7 +185,7 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
 st.set_page_config(
     page_title="Employee Wellness & Retention",
     layout="centered", 
-    initial_sidebar_state="auto" '
+    initial_sidebar_state="auto" 
 )
 
 st.title("Employee Wellness and Retention Project")
