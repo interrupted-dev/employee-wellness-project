@@ -1,20 +1,12 @@
 import streamlit as st
 import json
-import requests # Used for making HTTP requests to the Gemini API
-
-# --- Configuration for Gemini API ---
-# IMPORTANT: In a production environment, never hardcode API keys.
-# Use Streamlit secrets (st.secrets) or environment variables.
-# For this example, we'll leave it as an empty string. Canvas will automatically
-# provide the API key at runtime if it's an empty string.
-
+import requests 
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
-# GEMINI_API_KEY = "AIzaSyCoBAZzNOnd2mKMnyNoxZC83KJVpRVCOVI"
+
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-# --- Questions Data for Each Department ---
-# Each department has a list of questions. Answers are expected as ratings from 1 to 5.
+
 questions = {
     "Sales": [
         "How clear and communicated are the overall company sales goals?",
@@ -78,7 +70,7 @@ questions = {
     ],
 }
 
-# --- Function to get recommendations from Gemini API ---
+
 def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, str]:
     """
     Calls the Gemini API to get retention recommendations and a summary
@@ -94,13 +86,13 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
                           (strings) and a summary string. Returns error messages
                           in the list if the API call fails.
     """
-    # Construct the prompt for the Gemini model
+   
     prompt_text = f"""
     An employee from the {department} department has provided feedback on their wellness and satisfaction.
     Their ratings (1=Strongly Disagree, 5=Strongly Agree) are as follows:
 
     """
-    # Add each question and its rating to the prompt
+    
     for question, rating in ratings.items():
         prompt_text += f"- **{question}**: {rating}/5\n"
 
@@ -115,15 +107,15 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
     Start the summary with "Summary:".
     """
 
-    # Define headers for the API request
+  
     headers = {
         'Content-Type': 'application/json',
     }
-    # Define parameters, including the API key
+    
     params = {
-        'key': GEMINI_API_KEY # Canvas will populate this if GEMINI_API_KEY is an empty string
+        'key': GEMINI_API_KEY 
     }
-    # Define the payload for the API request
+   
     payload = {
         "contents": [
             {
@@ -136,24 +128,24 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
     }
 
     try:
-        # Make the POST request to the Gemini API
+        
         response = requests.post(
             f"{GEMINI_API_URL}",
             headers=headers,
             params=params,
-            data=json.dumps(payload) # Convert payload to JSON string
+            data=json.dumps(payload) 
         )
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
-        result = response.json() # Parse the JSON response
+        response.raise_for_status() 
+        result = response.json() 
 
         recommendations = []
         summary = ""
 
-        # Extract the generated text from the API response
+        
         if result and result.get("candidates") and len(result["candidates"]) > 0:
             generated_text = result["candidates"][0]["content"]["parts"][0]["text"]
 
-            # Split the generated text into lines
+            
             lines = generated_text.split('\n')
             summary_found = False
             for line in lines:
@@ -162,16 +154,16 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
                     summary = stripped_line[len("Summary:"):].strip()
                     summary_found = True
                 elif stripped_line.startswith('-') and not summary_found:
-                    # Remove any markdown bolding from the recommendation text
+                   
                     clean_rec = stripped_line.replace('**', '')
                     recommendations.append(clean_rec)
-                elif not summary_found and stripped_line: # Catch any non-bullet, non-summary text before summary
+                elif not summary_found and stripped_line: 
                     clean_rec = stripped_line.replace('**', '')
                     recommendations.append(clean_rec)
 
-            # Fallback if no bullet points or summary were explicitly parsed
+            
             if not recommendations and not summary:
-                # If no specific formatting was found, treat the whole response as one recommendation
+                
                 clean_text = generated_text.strip().replace('**', '')
                 recommendations = [clean_text]
                 summary = "No distinct summary provided by AI."
@@ -180,21 +172,20 @@ def get_gemini_recommendations(department: str, ratings: dict) -> tuple[list, st
         else:
             return ["Error: No recommendations could be generated by the AI. The response structure was unexpected."], ""
     except requests.exceptions.RequestException as e:
-        # Handle network-related errors (e.g., connection refused, timeout)
+        
         return [f"Error connecting to AI service: {e}. Please check your API key and network connection."], ""
     except json.JSONDecodeError:
-        # Handle cases where the API response is not valid JSON
+        
         return ["Error: Could not parse AI response. The response was not valid JSON."], ""
     except Exception as e:
-        # Handle any other unexpected errors
+        
         return [f"An unexpected error occurred: {e}"], ""
 
-# --- Streamlit Application Layout ---
-# Set basic page configuration for better aesthetics
+
 st.set_page_config(
     page_title="Employee Wellness & Retention",
-    layout="centered", # 'centered' or 'wide'
-    initial_sidebar_state="auto" # 'auto', 'expanded', or 'collapsed'
+    layout="centered", 
+    initial_sidebar_state="auto" '
 )
 
 st.title("Employee Wellness and Retention Project")
@@ -204,15 +195,15 @@ Please select your department and rate the statements from 1 (Strongly Disagree)
 """)
 st.markdown("---")
 
-# Department Selection Dropdown
+
 departments = ["Please Select", "Sales", "Marketing", "Engineering", "Human Resources", "Finance"]
 selected_department = st.selectbox(
     "Select your department:",
     departments,
-    key="department_select" # Unique key for the widget
+    key="department_select" 
 )
 
-# Initialize session state variables
+
 if 'ratings' not in st.session_state:
     st.session_state.ratings = {}
 if 'submitted' not in st.session_state:
@@ -227,112 +218,112 @@ if 'summary' not in st.session_state:
     st.session_state.summary = ""
 if 'current_question_index' not in st.session_state:
     st.session_state.current_question_index = 0
-if 'active_department' not in st.session_state: # New state variable to track the currently active department for questions
+if 'active_department' not in st.session_state: 
     st.session_state.active_department = "Please Select"
 
-# Logic to reset state when department changes
+
 if selected_department != st.session_state.active_department:
     st.session_state.active_department = selected_department
     st.session_state.current_question_index = 0
-    st.session_state.ratings = {} # Clear ratings for the new department
-    st.session_state.submitted = False # Reset submission status
-    st.session_state.recommendations = [] # Clear old recommendations
-    st.session_state.summary = "" # Clear old summary
-    if selected_department != "Please Select": # Only rerun if a real department is selected
+    st.session_state.ratings = {} 
+    st.session_state.submitted = False
+    st.session_state.recommendations = [] 
+    st.session_state.summary = "" 
+    if selected_department != "Please Select": 
         st.rerun()
 
-# Logic for displaying questions one by one
+
 if selected_department and selected_department != "Please Select":
-    # Adjusted font size and added top margin for the subheader
+
     st.markdown(f"<h3 style='font-size: 1.1em; margin-top: 1.5em;'>Please rate the following statements on a scale of 1 (Strongly Disagree) to 5 (Strongly Agree) for the {selected_department} department:</h3>", unsafe_allow_html=True)
-    # Add a gap between the subheader and the first question
+    
     st.markdown("<br>", unsafe_allow_html=True) 
 
     department_questions = questions[selected_department]
     total_questions = len(department_questions)
 
-    # Display the current question if not submitted
+    
     if not st.session_state.submitted:
-        # Ensure index is within bounds
+        
         if st.session_state.current_question_index >= total_questions:
-            st.session_state.current_question_index = total_questions - 1 # Cap at last question if somehow over
-            st.session_state.submitted = False # Reset submission if department changes after completion
+            st.session_state.current_question_index = total_questions - 1 
+            st.session_state.submitted = False 
 
-        # --- ONLY DISPLAY THE CURRENT QUESTION ---
+       
         current_question = department_questions[st.session_state.current_question_index]
         
-        # Use st.markdown for the question text to control font size
+      
         st.markdown(f"<p style='font-size: 1.15em; font-weight: bold;'>{st.session_state.current_question_index + 1}. {current_question}</p>", unsafe_allow_html=True)
         
-        # Get the current rating for this question, or default to 3 if not yet rated
+        
         current_rating_value = st.session_state.ratings.get(current_question, 3)
 
-        # Display the slider for the current question
+        
         rating = st.slider(
-            " ", # Empty label for the slider itself, as the question is above it
-            1, 5, # Min and Max values for the slider
-            value=current_rating_value, # Set the initial value of the slider
+            " ", 
+            1, 5, 
+            value=current_rating_value, 
             key=f"{selected_department}_q_{st.session_state.current_question_index}" # Unique key for this specific slider instance
         )
-        # Store the rating for the current question
+       
         st.session_state.ratings[current_question] = rating
 
-        # Navigation Buttons
-        # Use columns for better alignment of Previous/Next/Submit buttons
-        # Adjusted column ratios to center the submit button and align prev/next
+        
+        
+        
         if st.session_state.current_question_index < total_questions - 1:
-            # For Previous and Next buttons
+            
             col_prev, col_spacer, col_next = st.columns([1, 2, 1]) # Adjusted spacing
             with col_prev:
                 if st.session_state.current_question_index > 0:
                     if st.button("Previous", key="prev_button", use_container_width=True):
                         st.session_state.current_question_index -= 1
                         st.rerun()
-            with col_next: # Place "Next" button in the rightmost column
+            with col_next: 
                 if st.button("Next", key="next_button", use_container_width=True):
                     st.session_state.current_question_index += 1
                     st.rerun()
-        else: # On the last question, show Submit button, centered
-            # Adjusted columns for better centering of the submit button
+        else: 
+            
             col_left_spacer, col_submit, col_right_spacer = st.columns([1, 1.5, 1]) # Adjusted ratio for centering
             with col_submit:
                 if st.button("Submit Ratings", key="submit_button_final", use_container_width=True):
-                    # st.write("Submit button clicked!") # Debugging line to confirm click - removed for cleaner UI
+                    
                     st.session_state.submitted = True
-                    # Store the department and ratings that were just submitted
+                    
                     st.session_state.last_submitted_department = selected_department
                     st.session_state.last_submitted_ratings = st.session_state.ratings.copy() # Make a copy
-                    # Clear previous recommendations and summary to show loading state
+                    
                     st.session_state.recommendations = []
                     st.session_state.summary = ""
-                    st.rerun() # Trigger a rerun to immediately show the "Generating Recommendations..." message
+                    st.rerun() 
 
 elif selected_department == "Please Select":
     st.info("Please select your department to proceed.")
 
-# Display Recommendations after submission
+
 if st.session_state.submitted and st.session_state.last_submitted_department:
     st.subheader("Thank you for your feedback!")
     st.markdown("---")
 
-    # Only call API if recommendations haven't been generated yet for the current submission
+    
     if not st.session_state.recommendations and not st.session_state.summary:
         st.info("Please wait while AI generates personalized recommendations based on your input.")
-        # Use a spinner to indicate that recommendations are being generated
+        
         with st.spinner('Generating personalized recommendations...'):
-            # Call the Gemini API function using the stored submitted data
+            
             recs, summ = get_gemini_recommendations(
                 st.session_state.last_submitted_department,
                 st.session_state.last_submitted_ratings
             )
             st.session_state.recommendations = recs
             st.session_state.summary = summ
-            st.rerun() # Rerun to display the generated content
+            st.rerun() 
 
     if st.session_state.recommendations or st.session_state.summary:
         st.subheader("Recommendations for Employee Retention:")
         if st.session_state.recommendations:
-            # Display each recommendation as a markdown bullet point with increased font size
+            
             for rec in st.session_state.recommendations:
                 st.markdown(f"<p style='font-size: 1.1em;'>{rec}</p>", unsafe_allow_html=True)
         else:
@@ -340,7 +331,7 @@ if st.session_state.submitted and st.session_state.last_submitted_department:
 
         if st.session_state.summary:
             st.subheader("Summary:")
-            # Display summary with increased font size
+            
             st.markdown(f"<p style='font-size: 1.1em;'>{st.session_state.summary}</p>", unsafe_allow_html=True)
         else:
             st.info("No distinct summary was provided by the AI.")
